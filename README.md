@@ -1,42 +1,116 @@
 # RFAQuickPreview
 
-RFAQuickPreview is a standalone WPF `.exe` for quickly previewing `.rfa` family files from a folder. The desktop app is the user-facing entry point.
+Revit RFA 族文件快速预览工具。提供独立的 WPF 桌面应用，可递归扫描文件夹中的 `.rfa` 文件并展示缩略图预览。
 
-For real geometry thumbnails, the app uses a small Revit 2020 automation helper in the background. The first scan of uncached files starts Revit automatically, exports PNG thumbnails, closes Revit, then the desktop app displays the cached previews. Later scans use the cache directly.
+对于需要真实几何体缩略图的文件，应用会在后台自动启动 Revit 2020 导出 PNG 缩略图，完成后关闭 Revit，桌面应用直接显示缓存的预览图。后续扫描直接使用缓存，无需重复启动 Revit。
 
-## Desktop Build
+## 功能特性
 
-Publish the desktop app:
+- 递归扫描文件夹中的 `.rfa` 族文件
+- 文件夹右键菜单集成，一键启动预览
+- Revit 2020 后台自动生成真实几何体缩略图
+- PNG + JSON 缓存机制，后续扫描秒开
+- 支持文件搜索、卡片网格视图、详情面板和日志面板
 
-`.\scripts\Publish-Desktop.ps1 -Configuration Release`
+---
 
-Run:
+## 便携版使用（推荐）
 
-`.\dist\RFAQuickPreview\RFAQuickPreview.exe`
+便携版已包含 .NET 8.0 运行时，无需额外安装，解压即用。
 
-Register the folder right-click menu:
+### 1. 下载
 
-`.\scripts\Register-FolderContextMenu.ps1`
+从 [GitHub Releases](https://github.com/y1991427360s/RFAQuickPreview/releases) 下载 `RFAQuickPreviewPortable.zip` 并解压到任意目录。
 
-## Revit Automation Helper
+### 2. 运行
 
-The helper is installed as a Revit application add-in so the desktop app can ask Revit to generate real family previews without the user clicking a Revit command.
+双击 `RFAQuickPreview.exe` 启动应用。
 
-Build and install the helper:
+### 3. 注册右键菜单
 
-`& "C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\MSBuild\Current\Bin\MSBuild.exe" RFAQuickPreview.csproj /t:Restore,Build /p:Configuration=Debug`
+以 **管理员身份** 打开 PowerShell，进入便携版目录，运行：
 
-`.\scripts\Install-Addin.ps1 -Configuration Debug`
+```powershell
+.\RegisterRightClick.ps1
+```
 
-Current Revit path used by the project:
+注册后，在 Windows 资源管理器中右键点击任意文件夹，菜单中会出现 **"Preview RFA files"** 选项，点击即可启动预览。
 
-`D:\Autodesk\REVIT2020\Revit 2020`
+### 4. 取消右键菜单
 
-## Structure
+以管理员身份运行：
 
-- `App`: Revit external command entry point.
-- `UI`: WPF window, search, card grid, details and logs.
-- `Revit`: Revit API thumbnail export and parameter extraction.
-- `Cache`: PNG and JSON cache management.
-- `Services`: Recursive scan orchestration.
-- `Models`: DTOs used by UI, cache and services.
+```powershell
+.\UnregisterRightClick.ps1
+```
+
+### 5. 配置 Revit 路径
+
+如果需要自动生成真实几何体缩略图，需安装 Revit 2020。编辑便携版目录下的 `RFAQuickPreview.config.json`，修改 Revit 可执行文件路径：
+
+```json
+{
+  "RevitExePath": "D:\\Autodesk\\REVIT2020\\Revit 2020\\Revit.exe"
+}
+```
+
+> 如不配置 Revit 路径，应用仍可正常运行，但仅使用系统缩略图，无法生成真实几何体预览。
+
+---
+
+## 从源码构建
+
+### 环境要求
+
+- Windows 10/11
+- .NET 8.0 SDK
+- Visual Studio 2022 Build Tools（含 MSBuild）
+- Revit 2020（仅自动化预览功能需要）
+
+### 构建桌面应用（便携版）
+
+```powershell
+.\scripts\Publish-Desktop.ps1 -Configuration Release
+```
+
+输出目录：`dist\RFAQuickPreviewPortable\`
+
+### 构建 Revit 自动化助手
+
+```powershell
+& "C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\MSBuild\Current\Bin\MSBuild.exe" RFAQuickPreview.csproj /t:Restore,Build /p:Configuration=Release
+.\scripts\Install-Addin.ps1 -Configuration Release
+```
+
+安装后 Revit 2020 启动时会自动加载该插件。
+
+### 注册/取消右键菜单（源码版）
+
+```powershell
+.\scripts\Register-FolderContextMenu.ps1
+.\scripts\Unregister-FolderContextMenu.ps1
+```
+
+---
+
+## 项目结构
+
+| 目录 | 说明 |
+|------|------|
+| `App/` | Revit 外部命令入口点 |
+| `Desktop/` | 独立 WPF 桌面应用（主入口） |
+| `UI/` | Revit 内嵌 WPF 窗口、搜索、卡片网格、详情和日志 |
+| `Revit/` | Revit API 缩略图导出和参数提取 |
+| `Cache/` | PNG 和 JSON 缓存管理 |
+| `Services/` | 递归扫描编排服务 |
+| `Models/` | UI、缓存和服务共用的数据传输对象 |
+| `Properties/` | 程序集信息 |
+| `scripts/` | 构建、发布和注册脚本 |
+| `dist/` | 构建输出目录 |
+
+---
+
+## 下载
+
+- [源码](https://github.com/y1991427360s/RFAQuickPreview)
+- [便携版下载](https://github.com/y1991427360s/RFAQuickPreview/releases/download/v1.0.0/RFAQuickPreviewPortable.zip)
