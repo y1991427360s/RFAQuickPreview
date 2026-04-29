@@ -140,6 +140,92 @@ public sealed class RevitAutomationService
         return "Timed out while waiting for Revit preview generation.";
     }
 
+    public async Task<string> RefreshFamilyPreviewAsync(string familyPath, IProgress<string>? progress, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(familyPath) || !File.Exists(familyPath))
+        {
+            return "Family file not found.";
+        }
+
+        var revitExePath = FindRevitExePath();
+        if (string.IsNullOrWhiteSpace(revitExePath))
+        {
+            return "Revit.exe not found.";
+        }
+
+        var installResult = EnsureAutomationAddinInstalled(out _);
+        if (!string.IsNullOrWhiteSpace(installResult))
+        {
+            return installResult;
+        }
+
+        if (Process.GetProcessesByName("Revit").Any())
+        {
+            return "Revit is already running. Close Revit or use existing cache.";
+        }
+
+        Directory.CreateDirectory(_automationRoot);
+        var requestId = Guid.NewGuid().ToString("N");
+        var requestPath = Path.Combine(_automationRoot, "refresh_request.txt");
+        var donePath = Path.Combine(_automationRoot, "refresh_done_" + requestId + ".txt");
+        var logPath = Path.Combine(_automationRoot, "refresh_log_" + requestId + ".txt");
+
+        File.WriteAllLines(requestPath, new[] { requestId, familyPath }, System.Text.Encoding.UTF8);
+
+        using var process = Process.Start(new ProcessStartInfo
+        {
+            FileName = revitExePath,
+            Arguments = "/nosplash",
+            UseShellExecute = false,
+            CreateNoWindow = false
+        });
+
+        progress?.Report("Started Revit refresh.");
+        var lastLogLength = 0L;
+        var deadline = DateTime.UtcNow.AddMinutes(5);
+        while (DateTime.UtcNow < deadline)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (File.Exists(logPath))
+            {
+                var info = new FileInfo(logPath);
+                if (info.Length != lastLogLength)
+                {
+                    lastLogLength = info.Length;
+                    var lastLine = File.ReadLines(logPath).LastOrDefault();
+                    if (!string.IsNullOrWhiteSpace(lastLine))
+                    {
+                        progress?.Report(lastLine);
+                    }
+                }
+            }
+
+            if (File.Exists(donePath))
+            {
+                var text = await File.ReadAllTextAsync(donePath, cancellationToken);
+                return text.StartsWith("OK", StringComparison.OrdinalIgnoreCase)
+                    ? "Revit preview refreshed."
+                    : text;
+            }
+
+            await Task.Delay(1000, cancellationToken);
+        }
+
+        try
+        {
+            if (process != null && !process.HasExited)
+            {
+                process.Kill(true);
+            }
+        }
+        catch
+        {
+        }
+
+        return "Timed out while refreshing Revit preview.";
+    }
+
     private string? FindRevitExePath()
     {
         var candidates = new[]

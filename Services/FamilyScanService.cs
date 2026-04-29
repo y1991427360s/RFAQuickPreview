@@ -66,5 +66,13 @@ namespace RFAQuickPreview.Services
 
             return results;
         }
+
+        public FamilyPreviewInfo RefreshFile(string file)
+        {
+            var thumbnailPath = _cacheManager.GetThumbnailPath(file);
+            var info = _previewService.Generate(file, thumbnailPath);
+            _cacheManager.Save(info);
+            return info;
+        }
     }
 }

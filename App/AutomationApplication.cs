@@ -301,6 +301,7 @@ namespace RFAQuickPreview.App
 
             var automationRoot = GetAutomationRoot();
             ProcessPlaceRequest(uiApplication, automationRoot);
+            ProcessRefreshRequest(uiApplication, automationRoot);
 
             if (_scanProcessed)
             {
@@ -353,6 +354,67 @@ namespace RFAQuickPreview.App
                         Path.Combine(automationRoot, "done_" + requestId + ".txt"),
                         "ERROR" + Environment.NewLine + ex,
                         Encoding.UTF8);
+                }
+            }
+            finally
+            {
+                StopDialogWatcher();
+                TryExitRevit(uiApplication);
+            }
+        }
+
+        private void ProcessRefreshRequest(UIApplication uiApplication, string automationRoot)
+        {
+            var requestPath = Path.Combine(automationRoot, "refresh_request.txt");
+            if (!File.Exists(requestPath))
+            {
+                return;
+            }
+
+            string requestId = null;
+            try
+            {
+                StartDialogWatcher();
+
+                var lines = File.ReadAllLines(requestPath, Encoding.UTF8);
+                if (lines.Length < 2)
+                {
+                    File.Delete(requestPath);
+                    return;
+                }
+
+                requestId = lines[0];
+                var familyPath = lines[1];
+                File.Delete(requestPath);
+
+                var cacheManager = new PreviewCacheManager();
+                var previewService = new FamilyPreviewService(uiApplication);
+                var scanService = new FamilyScanService(cacheManager, previewService);
+                var logPath = Path.Combine(automationRoot, "refresh_log_" + requestId + ".txt");
+                File.AppendAllText(logPath, DateTime.Now.ToString("HH:mm:ss") + " Refreshing " + familyPath + Environment.NewLine, Encoding.UTF8);
+
+                var info = scanService.RefreshFile(familyPath);
+                File.AppendAllText(
+                    logPath,
+                    DateTime.Now.ToString("HH:mm:ss") + " " +
+                    (string.IsNullOrWhiteSpace(info.ErrorMessage) ? "Refreshed: " : "Error: ") +
+                    Path.GetFileName(familyPath) +
+                    (string.IsNullOrWhiteSpace(info.ErrorMessage) ? string.Empty : " - " + info.ErrorMessage) +
+                    Environment.NewLine,
+                    Encoding.UTF8);
+
+                WriteRefreshResult(
+                    automationRoot,
+                    requestId,
+                    string.IsNullOrWhiteSpace(info.ErrorMessage)
+                        ? "OK"
+                        : "ERROR" + Environment.NewLine + info.ErrorMessage);
+            }
+            catch (Exception ex)
+            {
+                if (!string.IsNullOrWhiteSpace(requestId))
+                {
+                    WriteRefreshResult(automationRoot, requestId, "ERROR" + Environment.NewLine + ex);
                 }
             }
             finally
@@ -489,6 +551,14 @@ namespace RFAQuickPreview.App
         {
             File.WriteAllText(
                 Path.Combine(automationRoot, "place_done_" + requestId + ".txt"),
+                text,
+                Encoding.UTF8);
+        }
+
+        private static void WriteRefreshResult(string automationRoot, string requestId, string text)
+        {
+            File.WriteAllText(
+                Path.Combine(automationRoot, "refresh_done_" + requestId + ".txt"),
                 text,
                 Encoding.UTF8);
         }
