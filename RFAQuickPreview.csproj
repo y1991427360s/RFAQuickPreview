@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" Condition="false" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{8C1A34CC-0A7E-4D19-9E8C-7F82D08854EF}</ProjectGuid>
+    <ProjectTypeGuids>{60dc8134-eba5-43b8-bcc9-bb4bc16c2548};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
+    <OutputType>Library</OutputType>
+    <RootNamespace>RFAQuickPreview</RootNamespace>
+    <AssemblyName>RFAQuickPreview</AssemblyName>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <TargetFrameworkIdentifier>.NETFramework</TargetFrameworkIdentifier>
+    <FileAlignment>512</FileAlignment>
+    <Deterministic>true</Deterministic>
+    <LangVersion>7.3</LangVersion>
+    <NuGetPackageRoot Condition=" '$(NuGetPackageRoot)' == '' ">$(UserProfile)\.nuget\packages\</NuGetPackageRoot>
+    <ExcludeRestorePackageImports>true</ExcludeRestorePackageImports>
+    <Revit2020InstallDir Condition=" '$(Revit2020InstallDir)' == '' and '$(REVIT2020_INSTALLDIR)' != '' ">$(REVIT2020_INSTALLDIR)</Revit2020InstallDir>
+    <Revit2020InstallDir Condition=" '$(Revit2020InstallDir)' == '' ">D:\Autodesk\REVIT2020\Revit 2020</Revit2020InstallDir>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="PresentationCore" />
+    <Reference Include="PresentationFramework" />
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Xaml" />
+    <Reference Include="WindowsBase" />
+    <Reference Include="RevitAPI">
+      <HintPath>$(Revit2020InstallDir)\RevitAPI.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="RevitAPIUI">
+      <HintPath>$(Revit2020InstallDir)\RevitAPIUI.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net472" Version="1.0.3">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="App\AutomationApplication.cs" />
+    <Compile Include="App\RfaQuickPreviewCommand.cs" />
+    <Compile Include="App\ScanExternalEventHandler.cs" />
+    <Compile Include="Cache\PreviewCacheManager.cs" />
+    <Compile Include="Models\FamilyParameterInfo.cs" />
+    <Compile Include="Models\FamilyPreviewInfo.cs" />
+    <Compile Include="Models\ScanProgressInfo.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Revit\FamilyPreviewService.cs" />
+    <Compile Include="Revit\IFamilyPreviewService.cs" />
+    <Compile Include="Services\FamilyScanService.cs" />
+    <Compile Include="UI\MainWindow.xaml.cs">
+      <DependentUpon>MainWindow.xaml</DependentUpon>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Page Include="UI\MainWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="RFAQuickPreview.addin" />
+    <None Include="README.md" />
+  </ItemGroup>
+  <Target Name="ValidateRevitApiReferences" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(Revit2020InstallDir)\RevitAPI.dll')" Text="RevitAPI.dll was not found. Install Revit 2020 or build with /p:Revit2020InstallDir=&quot;D:\Autodesk\REVIT2020\Revit 2020&quot;." />
+    <Error Condition="!Exists('$(Revit2020InstallDir)\RevitAPIUI.dll')" Text="RevitAPIUI.dll was not found. Install Revit 2020 or build with /p:Revit2020InstallDir=&quot;D:\Autodesk\REVIT2020\Revit 2020&quot;." />
+  </Target>
+  <Import Project="$(NuGetPackageRoot)microsoft.netframework.referenceassemblies.net472\1.0.3\build\Microsoft.NETFramework.ReferenceAssemblies.net472.targets"
+          Condition="Exists('$(NuGetPackageRoot)microsoft.netframework.referenceassemblies.net472\1.0.3\build\Microsoft.NETFramework.ReferenceAssemblies.net472.targets')" />
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

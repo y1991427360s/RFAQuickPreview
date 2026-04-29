@@ -1,0 +1,7 @@
+bin/
+obj/
+.vs/
+*.user
+
+# Keep portable dist but ignore other build output
+!dist/RFAQuickPreviewPortable/

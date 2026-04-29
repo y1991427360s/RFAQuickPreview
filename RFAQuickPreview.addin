@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RevitAddIns>
+  <AddIn Type="Command">
+    <Name>RFAQuickPreview</Name>
+    <Assembly>%APPDATA%\Autodesk\Revit\Addins\2020\RFAQuickPreview\RFAQuickPreview.dll</Assembly>
+    <AddInId>8C1A34CC-0A7E-4D19-9E8C-7F82D08854EF</AddInId>
+    <FullClassName>RFAQuickPreview.App.RfaQuickPreviewCommand</FullClassName>
+    <VendorId>RFQP</VendorId>
+    <VendorDescription>RFAQuickPreview</VendorDescription>
+  </AddIn>
+</RevitAddIns>
