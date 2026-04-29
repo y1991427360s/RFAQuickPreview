@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
@@ -15,19 +17,279 @@ namespace RFAQuickPreview.App
     public class AutomationApplication : IExternalApplication
     {
         private bool _scanProcessed;
+        private System.Threading.Timer _dialogWatcher;
 
         public Result OnStartup(UIControlledApplication application)
         {
             WriteLoadedHelperInfo();
+            application.DialogBoxShowing += OnDialogBoxShowing;
             application.Idling += OnIdling;
             return Result.Succeeded;
         }
 
         public Result OnShutdown(UIControlledApplication application)
         {
+            StopDialogWatcher();
+            application.DialogBoxShowing -= OnDialogBoxShowing;
             application.Idling -= OnIdling;
             return Result.Succeeded;
         }
+
+        private static void OnDialogBoxShowing(object sender, DialogBoxShowingEventArgs e)
+        {
+            var taskDialog = e as TaskDialogShowingEventArgs;
+            if (taskDialog != null)
+            {
+                e.OverrideResult(TaskDialogCommandLink1);
+                return;
+            }
+
+            e.OverrideResult(DialogResultOk);
+        }
+
+        #region Win32 Dialog Watcher
+
+        private void StartDialogWatcher()
+        {
+            if (_dialogWatcher != null)
+            {
+                return;
+            }
+
+            _dialogWatcher = new System.Threading.Timer(_ =>
+            {
+                CloseRevitWarningDialogs();
+            }, null, 500, 500);
+        }
+
+        private void StopDialogWatcher()
+        {
+            if (_dialogWatcher != null)
+            {
+                _dialogWatcher.Dispose();
+                _dialogWatcher = null;
+            }
+        }
+
+        private static void CloseRevitWarningDialogs()
+        {
+            try
+            {
+                var mainWindow = FindRevitMainWindow();
+                if (mainWindow == IntPtr.Zero)
+                {
+                    return;
+                }
+
+                var dialogs = new List<IntPtr>();
+                EnumWindows((hwnd, _) =>
+                {
+                    if (!IsWindowVisible(hwnd))
+                    {
+                        return true;
+                    }
+
+                    // Must be owned by Revit main window
+                    if (GetWindow(hwnd, GW_OWNER) != mainWindow)
+                    {
+                        return true;
+                    }
+
+                    // Must be a popup/dialog style (not a child window)
+                    var style = GetWindowLong(hwnd, GWL_STYLE);
+                    if ((style & WS_CHILD) != 0)
+                    {
+                        return true;
+                    }
+
+                    dialogs.Add(hwnd);
+                    return true;
+                }, IntPtr.Zero);
+
+                foreach (var hwnd in dialogs)
+                {
+                    if (IsUpdaterWarningDialog(hwnd))
+                    {
+                        ClickContinueButton(hwnd);
+                    }
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        private static bool IsUpdaterWarningDialog(IntPtr hwnd)
+        {
+            var text = GetWindowTreeText(hwnd);
+            if (string.IsNullOrEmpty(text))
+            {
+                return false;
+            }
+
+            if (ContainsAny(
+                text,
+                "\u7b2c\u4e09\u65b9\u66f4\u65b0\u7a0b\u5e8f",
+                "\u66f4\u65b0\u7a0b\u5e8f",
+                "third party updater",
+                "updater",
+                "BoChao.Revit.Events",
+                "STDR Addition Updater"))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool ContainsAny(string text, params string[] needles)
+        {
+            foreach (var needle in needles)
+            {
+                if (text.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static void ClickContinueButton(IntPtr dialog)
+        {
+            var buttons = new List<IntPtr>();
+            EnumChildWindows(dialog, (hwnd, _) =>
+            {
+                if (!IsWindowVisible(hwnd))
+                {
+                    return true;
+                }
+
+                var className = GetWindowClassName(hwnd);
+                if (className.IndexOf("Button", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    buttons.Add(hwnd);
+                }
+
+                return true;
+            }, IntPtr.Zero);
+
+            var continueButton = buttons.FirstOrDefault(hwnd =>
+                ContainsAny(
+                    GetWindowTitle(hwnd),
+                    "\u7ee7\u7eed",
+                    "\u5904\u7406\u6587\u4ef6",
+                    "continue",
+                    "working with file"));
+
+            if (continueButton == IntPtr.Zero && buttons.Count > 0)
+            {
+                continueButton = buttons[0];
+            }
+
+            if (continueButton != IntPtr.Zero)
+            {
+                PostMessage(continueButton, BM_CLICK, IntPtr.Zero, IntPtr.Zero);
+            }
+        }
+
+        private static IntPtr FindRevitMainWindow()
+        {
+            var result = IntPtr.Zero;
+            EnumWindows((hwnd, _) =>
+            {
+                if (!IsWindowVisible(hwnd))
+                {
+                    return true;
+                }
+
+                var title = GetWindowTitle(hwnd);
+                if (!string.IsNullOrEmpty(title) &&
+                    title.IndexOf("Revit", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                    GetWindow(hwnd, GW_OWNER) == IntPtr.Zero &&
+                    (GetWindowLong(hwnd, GWL_STYLE) & WS_CHILD) == 0)
+                {
+                    result = hwnd;
+                    return false; // stop enumeration
+                }
+
+                return true;
+            }, IntPtr.Zero);
+
+            return result;
+        }
+
+        private static string GetWindowTitle(IntPtr hwnd)
+        {
+            var sb = new StringBuilder(512);
+            GetWindowText(hwnd, sb, sb.Capacity);
+            return sb.ToString();
+        }
+
+        private static string GetWindowClassName(IntPtr hwnd)
+        {
+            var sb = new StringBuilder(256);
+            GetClassName(hwnd, sb, sb.Capacity);
+            return sb.ToString();
+        }
+
+        private static string GetWindowTreeText(IntPtr hwnd)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine(GetWindowTitle(hwnd));
+
+            EnumChildWindows(hwnd, (child, _) =>
+            {
+                var text = GetWindowTitle(child);
+                if (!string.IsNullOrWhiteSpace(text))
+                {
+                    sb.AppendLine(text);
+                }
+
+                return true;
+            }, IntPtr.Zero);
+
+            return sb.ToString();
+        }
+
+        #endregion
+
+        #region Win32 Imports
+
+        private delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        private static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+
+        [DllImport("user32.dll")]
+        private static extern bool IsWindowVisible(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        private static extern bool EnumChildWindows(IntPtr hWndParent, EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
+
+        [DllImport("user32.dll")]
+        private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+
+        [DllImport("user32.dll")]
+        private static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+        private const uint GW_OWNER = 4;
+        private const int GWL_STYLE = -16;
+        private const int WS_CHILD = 0x40000000;
+        private const uint BM_CLICK = 0x00F5;
+        private const int DialogResultOk = 1;
+        private const int TaskDialogCommandLink1 = 1001;
+
+        #endregion
 
         private void OnIdling(object sender, IdlingEventArgs e)
         {
@@ -52,6 +314,10 @@ namespace RFAQuickPreview.App
             }
 
             _scanProcessed = true;
+
+            // Start watching for warning dialogs before opening any files
+            StartDialogWatcher();
+
             string requestId = null;
             try
             {
@@ -91,6 +357,7 @@ namespace RFAQuickPreview.App
             }
             finally
             {
+                StopDialogWatcher();
                 TryExitRevit(uiApplication);
             }
         }

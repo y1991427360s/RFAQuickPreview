@@ -1,4 +1,4 @@
-﻿$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Stop"
 $baseKey = "HKCU:\Software\Classes\Directory\shell\RFAQuickPreview"
 if (Test-Path $baseKey) {
     Remove-Item -Path $baseKey -Recurse -Force

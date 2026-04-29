@@ -1,4 +1,4 @@
-﻿$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Stop"
 $exe = Join-Path $PSScriptRoot "RFAQuickPreview.exe"
 $baseKey = "HKCU:\Software\Classes\Directory\shell\RFAQuickPreview"
 $commandKey = Join-Path $baseKey "command"
