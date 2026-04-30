@@ -177,7 +177,6 @@ public partial class MainWindow : Window
             DetailFrontHeightTextBlock.Text = string.Empty;
             DetailLeftWidthTextBlock.Text = string.Empty;
             PlaceInRevitButton.IsEnabled = false;
-            RefreshPreviewButton.IsEnabled = false;
             return;
         }
 
@@ -188,7 +187,6 @@ public partial class MainWindow : Window
         SetDimensionDetails(info);
         DetailImage.Source = LoadBitmap(info.ThumbnailPath);
         PlaceInRevitButton.IsEnabled = true;
-        RefreshPreviewButton.IsEnabled = true;
     }
 
     private void SetDimensionDetails(RfaFileInfo info)
@@ -251,67 +249,6 @@ public partial class MainWindow : Window
         }
     }
 
-    private async void RefreshPreviewButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (FileListBox.SelectedItem is RfaFileInfo info)
-        {
-            await RefreshPreviewAsync(info);
-        }
-    }
-
-    private async Task RefreshPreviewAsync(RfaFileInfo info)
-    {
-        if (_isPlacementRequestInProgress)
-        {
-            return;
-        }
-
-        _isPlacementRequestInProgress = true;
-        ScanButton.IsEnabled = false;
-        PlaceInRevitButton.IsEnabled = false;
-        RefreshPreviewButton.IsEnabled = false;
-        ProgressBar.Value = 0;
-        ProgressTextBlock.Text = "Refreshing selected preview...";
-
-        try
-        {
-            AppendLog("Refresh preview: " + info.FileName);
-            var result = await _revitAutomation.RefreshFamilyPreviewAsync(
-                info.FullPath,
-                new Progress<string>(AppendLog),
-                CancellationToken.None);
-            AppendLog(result);
-            ProgressTextBlock.Text = result;
-
-            if (result.StartsWith("Revit preview refreshed.", StringComparison.OrdinalIgnoreCase))
-            {
-                var refreshedInfo = RfaFileInfo.FromPath(info.FullPath);
-                refreshedInfo.ThumbnailPath = _cache.GetPath(info.FullPath);
-                refreshedInfo.Status = "Revit preview";
-                ReplaceFileInfo(info, refreshedInfo);
-                DetailImage.Source = null;
-                DetailImage.Source = LoadBitmap(refreshedInfo.ThumbnailPath);
-                SetDimensionDetails(refreshedInfo);
-                ProgressBar.Value = 100;
-            }
-        }
-        catch (Exception ex)
-        {
-            AppLog.Write("Refresh preview failed: " + ex);
-            AppendLog("Refresh preview failed: " + ex.Message);
-            ProgressTextBlock.Text = "Refresh preview failed.";
-            System.Windows.MessageBox.Show(this, ex.Message, "RFAQuickPreview", MessageBoxButton.OK, MessageBoxImage.Error);
-        }
-        finally
-        {
-            _isPlacementRequestInProgress = false;
-            ScanButton.IsEnabled = true;
-            var hasSelection = FileListBox.SelectedItem is RfaFileInfo;
-            PlaceInRevitButton.IsEnabled = hasSelection;
-            RefreshPreviewButton.IsEnabled = hasSelection;
-        }
-    }
-
     private void ReplaceFileInfo(RfaFileInfo oldInfo, RfaFileInfo newInfo)
     {
         var index = _files.IndexOf(oldInfo);
@@ -333,7 +270,6 @@ public partial class MainWindow : Window
 
         _isPlacementRequestInProgress = true;
         PlaceInRevitButton.IsEnabled = false;
-        RefreshPreviewButton.IsEnabled = false;
         ProgressTextBlock.Text = "Sending family to Revit...";
 
         try
@@ -355,7 +291,6 @@ public partial class MainWindow : Window
             _isPlacementRequestInProgress = false;
             var hasSelection = FileListBox.SelectedItem is RfaFileInfo;
             PlaceInRevitButton.IsEnabled = hasSelection;
-            RefreshPreviewButton.IsEnabled = hasSelection;
         }
     }
 

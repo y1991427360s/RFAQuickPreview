@@ -99,12 +99,6 @@
                         Margin="0,16,0,0"
                         IsEnabled="False"
                         Click="PlaceInRevitButton_Click" />
-                <Button x:Name="RefreshPreviewButton"
-                        Content="Refresh Preview"
-                        Height="34"
-                        Margin="0,8,0,0"
-                        IsEnabled="False"
-                        Click="RefreshPreviewButton_Click" />
             </StackPanel>
         </Border>
 
