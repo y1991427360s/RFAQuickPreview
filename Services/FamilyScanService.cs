@@ -26,6 +26,18 @@ namespace RFAQuickPreview.Services
                 .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
+            return ScanFiles(files, progress, false);
+        }
+
+        public IList<FamilyPreviewInfo> ScanFiles(IList<string> files, Action<ScanProgressInfo> progress)
+        {
+            return ScanFiles(files, progress, true);
+        }
+
+        private IList<FamilyPreviewInfo> ScanFiles(IList<string> files, Action<ScanProgressInfo> progress, bool forceRefresh)
+        {
+            var results = new List<FamilyPreviewInfo>();
+
             for (var index = 0; index < files.Count; index++)
             {
                 var file = files[index];
@@ -37,7 +49,7 @@ namespace RFAQuickPreview.Services
                 });
 
                 FamilyPreviewInfo info;
-                if (_cacheManager.TryLoad(file, out info))
+                if (!forceRefresh && _cacheManager.TryLoad(file, out info))
                 {
                     results.Add(info);
                     progress?.Invoke(new ScanProgressInfo

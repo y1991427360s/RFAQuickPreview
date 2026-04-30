@@ -61,6 +61,27 @@ public sealed class RevitAutomationService
 
     public async Task<string> GenerateFolderPreviewsAsync(string folderPath, IProgress<string>? progress, CancellationToken cancellationToken)
     {
+        return await GeneratePreviewsAsync(new[] { folderPath }, "Revit previews generated.", progress, cancellationToken);
+    }
+
+    public async Task<string> GenerateFilePreviewsAsync(IReadOnlyList<string> familyPaths, IProgress<string>? progress, CancellationToken cancellationToken)
+    {
+        var existingPaths = familyPaths
+            .Where(path => !string.IsNullOrWhiteSpace(path) && File.Exists(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (existingPaths.Count == 0)
+        {
+            return "No changed family previews to generate.";
+        }
+
+        return await GeneratePreviewsAsync(existingPaths, "Changed Revit previews generated.", progress, cancellationToken);
+    }
+
+    private async Task<string> GeneratePreviewsAsync(IReadOnlyList<string> requestLines, string successMessage, IProgress<string>? progress, CancellationToken cancellationToken)
+    {
         var revitExePath = FindRevitExePath();
         if (string.IsNullOrWhiteSpace(revitExePath))
         {
@@ -84,7 +105,7 @@ public sealed class RevitAutomationService
         var donePath = Path.Combine(_automationRoot, "done_" + requestId + ".txt");
         var logPath = Path.Combine(_automationRoot, "log_" + requestId + ".txt");
 
-        File.WriteAllLines(requestPath, new[] { requestId, folderPath }, System.Text.Encoding.UTF8);
+        File.WriteAllLines(requestPath, new[] { requestId }.Concat(requestLines), System.Text.Encoding.UTF8);
 
         using var process = Process.Start(new ProcessStartInfo
         {
@@ -119,7 +140,7 @@ public sealed class RevitAutomationService
             {
                 var text = await File.ReadAllTextAsync(donePath, cancellationToken);
                 return text.StartsWith("OK", StringComparison.OrdinalIgnoreCase)
-                    ? "Revit previews generated."
+                    ? successMessage
                     : text;
             }
 

@@ -336,7 +336,19 @@ namespace RFAQuickPreview.App
                 var previewService = new FamilyPreviewService(uiApplication);
                 var scanService = new FamilyScanService(cacheManager, previewService);
                 var logPath = Path.Combine(automationRoot, "log_" + requestId + ".txt");
-                var results = scanService.Scan(folderPath, progress =>
+                var files = lines.Length > 2 || File.Exists(folderPath)
+                    ? lines.Skip(1)
+                        .Where(path => !string.IsNullOrWhiteSpace(path) && File.Exists(path))
+                        .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                        .ToList()
+                    : null;
+
+                var results = files != null
+                    ? scanService.ScanFiles(files, progress =>
+                    {
+                        File.AppendAllText(logPath, DateTime.Now.ToString("HH:mm:ss") + " " + progress.Message + Environment.NewLine, Encoding.UTF8);
+                    })
+                    : scanService.Scan(folderPath, progress =>
                 {
                     File.AppendAllText(logPath, DateTime.Now.ToString("HH:mm:ss") + " " + progress.Message + Environment.NewLine, Encoding.UTF8);
                 });

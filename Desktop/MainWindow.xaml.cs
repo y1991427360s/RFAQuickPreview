@@ -81,13 +81,15 @@ public partial class MainWindow : Window
                 .ToList());
 
             AppendLog($"Found {paths.Count} RFA files.");
-            var missingRevitPreviewCount = paths.Count(path => !_cache.IsFresh(path, _cache.GetPath(path)) || !_cache.HasFreshDimensions(path));
-            if (missingRevitPreviewCount > 0)
+            var pathsMissingRevitPreviews = paths
+                .Where(path => !_cache.IsFresh(path, _cache.GetPath(path)) || !_cache.HasFreshDimensions(path))
+                .ToList();
+            if (pathsMissingRevitPreviews.Count > 0)
             {
                 ProgressTextBlock.Text = "Generating Revit previews...";
-                AppendLog($"Generating {missingRevitPreviewCount} Revit previews and dimensions. Revit will open and close automatically.");
-                var automationResult = await _revitAutomation.GenerateFolderPreviewsAsync(
-                    folderPath,
+                AppendLog($"Generating {pathsMissingRevitPreviews.Count} changed Revit previews and dimensions. Revit will open and close automatically.");
+                var automationResult = await _revitAutomation.GenerateFilePreviewsAsync(
+                    pathsMissingRevitPreviews,
                     new Progress<string>(AppendLog),
                     CancellationToken.None);
                 AppendLog(automationResult);
