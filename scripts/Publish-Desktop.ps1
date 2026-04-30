@@ -10,7 +10,9 @@ $publishDir = Join-Path $repoRoot "dist\RFAQuickPreviewPortable"
 $msbuild = "C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\MSBuild\Current\Bin\MSBuild.exe"
 
 if (Test-Path $publishDir) {
-    Remove-Item -LiteralPath $publishDir -Recurse -Force
+    Get-ChildItem -LiteralPath $publishDir -Force | Remove-Item -Recurse -Force
+} else {
+    New-Item -ItemType Directory -Force -Path $publishDir | Out-Null
 }
 
 & $msbuild (Join-Path $repoRoot "RFAQuickPreview.csproj") /t:Restore,Build /p:Configuration=Debug /v:minimal

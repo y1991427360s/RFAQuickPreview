@@ -494,7 +494,8 @@ namespace RFAQuickPreview.App
             using (var transaction = new Transaction(document, "Load RFAQuickPreview Family"))
             {
                 transaction.Start();
-                if (!document.LoadFamily(familyPath, out family))
+                var loadOptions = new OverwriteFamilyLoadOptions();
+                if (!document.LoadFamily(familyPath, loadOptions, out family))
                 {
                     family = FindFamilyByName(document, Path.GetFileNameWithoutExtension(familyPath));
                 }
@@ -529,6 +530,26 @@ namespace RFAQuickPreview.App
             }
 
             return symbol;
+        }
+
+        private sealed class OverwriteFamilyLoadOptions : IFamilyLoadOptions
+        {
+            public bool OnFamilyFound(bool familyInUse, out bool overwriteParameterValues)
+            {
+                overwriteParameterValues = true;
+                return true;
+            }
+
+            public bool OnSharedFamilyFound(
+                Family sharedFamily,
+                bool familyInUse,
+                out FamilySource source,
+                out bool overwriteParameterValues)
+            {
+                source = FamilySource.Family;
+                overwriteParameterValues = true;
+                return true;
+            }
         }
 
         private static Family FindFamilyByName(Document document, string familyName)
